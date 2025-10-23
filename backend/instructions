@@ -1,0 +1,12 @@
+
+ssh -i "/Users/thebigsun/Desktop/projects/social_media_project/backend/andrewkey.pem" ubuntu@ec2-107-21-150-23.compute-1.amazonaws.com
+
+
+
+
+
+sudo apt-get update
+sudo apt-get install -y docker.io docker-compose-plugin
+sudo usermod -aG docker $USER
+newgrp docker
+docker --version && docker compose version

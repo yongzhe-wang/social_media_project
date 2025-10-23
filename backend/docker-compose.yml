@@ -1,0 +1,40 @@
+version: "3.9"
+services:
+  postgres:
+    image: ankane/pgvector:latest
+    environment:
+      POSTGRES_PASSWORD: secret
+      POSTGRES_USER: app
+      POSTGRES_DB: app
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+
+  api:
+    build: .
+    env_file: .env
+    environment:
+      PG_DSN: ${PG_DSN:-postgres://app:secret@postgres:5432/app}
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-*}
+      MODEL_NAME: ${MODEL_NAME:-ViT-B-32}
+      MODEL_PRETRAINED: ${MODEL_PRETRAINED:-openai}
+      FUSE_ALPHA: ${FUSE_ALPHA:-0.5}
+      EMBEDDING_DIM: ${EMBEDDING_DIM:-512}
+    depends_on:
+      - postgres
+    ports:
+      - "8000:8000"
+
+  caddy:
+    image: caddy:2
+    depends_on: [api]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+
+volumes:
+  pgdata:
