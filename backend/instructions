@@ -1,5 +1,5 @@
 
-ssh -i "/Users/thebigsun/Desktop/projects/social_media_project/backend/andrewkey.pem" ubuntu@ec2-107-21-150-23.compute-1.amazonaws.com
+ssh -i "/Users/thebigsun/Desktop/projects/social_media_project/social_media_project/backend/andrewkey.pem" ubuntu@ec2-107-21-150-23.compute-1.amazonaws.com
 
 
 
