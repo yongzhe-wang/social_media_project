@@ -10,3 +10,33 @@ sudo apt-get install -y docker.io docker-compose-plugin
 sudo usermod -aG docker $USER
 newgrp docker
 docker --version && docker compose version
+sudo apt-get update
+sudo apt-get install -y docker.io docker-compose-plugin
+sudo usermod -aG docker $USER
+newgrp docker
+docker --version && docker compose version
+
+
+# on the server
+sudo apt-get update && sudo apt-get install -y git
+
+git config --global credential.helper store   # optional
+
+git clone https://github.com/yongzhe-wang/social_media_project.git
+# When prompted:
+#   Username: <your GitHub username>
+#   Password: <your Personal Access Token with repo scope>
+
+
+cd social_media_project/backend
+
+cp .env.example .env
+docker compose up -d --build
+docker compose ps
+
+
+
+
+cd ~/social_media_project/backend
+docker compose logs -f api
+

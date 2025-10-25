@@ -86,7 +86,7 @@ def search(req: SearchRequest):
     return [SearchOut(**r) for r in rows]
 
 # Optional multipart search (text + image)
-@app.post("/api/search-multipart", response_model=list[SearchOut]])
+@app.post("/api/search-multipart", response_model=list[SearchOut])
 async def search_multipart(
     q: str = Form(""),
     image: UploadFile | None = File(None),
