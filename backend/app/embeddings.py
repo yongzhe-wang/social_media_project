@@ -1,46 +1,52 @@
+import base64
 import io
-from typing import Optional
+from typing import Optional, Literal, List
 
-import torch
-import open_clip
+import httpx
 from PIL import Image
+
 from .settings import settings
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+COHERE_BASE = "https://api.cohere.com/v2"
 
-# load once at import time
-model, _, preprocess = open_clip.create_model_and_transforms(
-    settings.MODEL_NAME, pretrained=settings.MODEL_PRETRAINED, device=DEVICE
-)
-tokenizer = open_clip.get_tokenizer(settings.MODEL_NAME)
+def _to_data_uri(img_bytes: bytes) -> str:
+    # Normalize to PNG to be safe
+    img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+    return f"data:image/png;base64,{b64}"
 
-@torch.inference_mode()
-def fuse_embed(text: str, image_bytes: Optional[bytes]) -> list[float]:
-    # Encode text (optional)
+def cohere_embed(
+    text: str,
+    image_bytes: Optional[bytes],
+    input_type: Literal["search_document","search_query","classification","clustering"]="search_document",
+    output_dimension: Optional[int] = None,
+) -> List[float]:
+    if not settings.COHERE_API_KEY:
+        raise RuntimeError("COHERE_API_KEY missing")
+
+    content = []
     if text:
-        tok = tokenizer([text]).to(DEVICE)
-        e_t = model.encode_text(tok)
-        e_t = torch.nn.functional.normalize(e_t, dim=-1)
-    else:
-        e_t = None
-
-    # Encode image (optional)
+        content.append({"type":"text","text":text})
     if image_bytes:
-        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-        img = preprocess(img).unsqueeze(0).to(DEVICE)
-        e_i = model.encode_image(img)
-        e_i = torch.nn.functional.normalize(e_i, dim=-1)
-    else:
-        e_i = None
+        content.append({"type":"image","image": _to_data_uri(image_bytes)})
 
-    if e_t is not None and e_i is not None:
-        v = torch.nn.functional.normalize(settings.FUSE_ALPHA * e_t + (1 - settings.FUSE_ALPHA) * e_i, dim=-1)
-    elif e_t is not None:
-        v = e_t
-    elif e_i is not None:
-        v = e_i
-    else:
-        # should not happen; caller ensures at least one signal
-        raise ValueError("Both text and image are empty")
+    if not content:
+        raise ValueError("empty input for embedding")
 
-    return v.squeeze(0).detach().cpu().float().tolist()  # length = settings.EMBEDDING_DIM
+    payload = {
+        "inputs": [{"content": content}],
+        "model": settings.COHERE_EMBED_MODEL,
+        "input_type": input_type,
+        "embedding_types": ["float"],
+    }
+    if output_dimension:
+        payload["output_dimension"] = output_dimension
+
+    headers = {"Authorization": f"Bearer {settings.COHERE_API_KEY}"}
+    with httpx.Client(timeout=settings.COHERE_TIMEOUT) as client:
+        r = client.post(f"{COHERE_BASE}/embed", json=payload, headers=headers)
+    r.raise_for_status()
+    data = r.json()
+    return data["embeddings"]["float"][0]  # 1 input → 1 vector

@@ -45,14 +45,12 @@ docker compose logs -f api
 UPDATE FILES
 
 cd ~/social_media_project
-# keep your local .env safe just in case
 cp backend/.env /tmp/backend.env || true
 
 git fetch --all
-git reset --hard origin/main    # force to remote main
+git reset --hard origin/main   
 # (if you changed branches, use the branch name you pushed instead)
 
-# restore .env if needed
 [ -f /tmp/backend.env ] && cp /tmp/backend.env backend/.env
 
 cd ~/social_media_project/backend
@@ -60,15 +58,10 @@ docker compose down
 docker compose up -d --build
 
 cd ~/social_media_project/backend
-
-# 1) Add the missing dep (one-liner append)
 echo "python-multipart==0.0.9" | tee -a requirements.txt
 
-# 2) Rebuild the API image and restart
 docker compose build --no-cache api
 docker compose up -d api
-
-# 3) Watch logs until you see Uvicorn running
 docker compose logs -f api
 
 
@@ -82,4 +75,56 @@ curl http://127.0.0.1:8000/healthz
 # public (from anywhere)
 curl http://107-21-150-23.sslip.io/healthz
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+brew install python@3.11
+/opt/homebrew/bin/python3.11 -m venv venv311
+source venv311/bin/activate
+pip install -U pip
+
+
+
+
+Local runs
+
+cd ~/Desktop/projects/social_media_project/social_media_project/backend
+python3 -m venv vena
+source venv/bin/activate
+pip install --upgrade pip
+
+
+pip install -r requirements.txt
+
+psql "postgres://app:secret@localhost:5432/app" -f migrations/001_init.sql
+
+
+
+docker run --name smp-pg \
+  -e POSTGRES_PASSWORD=secret -e POSTGRES_USER=app -e POSTGRES_DB=app \
+  -p 5432:5432 -d ankane/pgvector:latest
+
+
+# make sure the API points to your local Postgres (since you’re not using docker-compose)
+export PG_DSN="postgres://app:secret@localhost:5432/app"
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+
+
+
+cd /Users/thebigsun/Desktop/projects/social_media_project/social_media_project/backend
+source venv311/bin/activate
+export PG_DSN="postgres://app:secret@localhost:5432/app"
+set -a; source .env; set +a
+# confirm the key is visible to the process
+[ -n "$COHERE_API_KEY" ] && echo "COHERE_API_KEY loaded" || echo "MISSING KEY"
 
